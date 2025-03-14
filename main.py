@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, current_app
 from flask_restx import Api
 from models import ImageData, User
 from models import db
@@ -15,7 +15,7 @@ def create_app(config):
 
 
 
-    CORS(app, supports_credentials=True, origins=app.config['ALLOW_ORIGINS'])
+    CORS(app, supports_credentials=True, origins=['http://localhost:5173/', 'http://localhost:5173', 'https://aizen-frontend-git-main-srinathdivate123s-projects.vercel.app/', 'https://aizen-frontend-git-main-srinathdivate123s-projects.vercel.app'])
 
 
     db.init_app(app)
@@ -28,13 +28,7 @@ def create_app(config):
     api.add_namespace(workspace_ns)
     api.add_namespace(auth_ns)
 
-    @app.route("/")
-    def index():
-        return app.send_static_file("index.html")
 
-    @app.errorhandler(404)
-    def not_found(err):
-        return app.send_static_file("index.html")
 
     # model (serializer)
     @app.shell_context_processor
