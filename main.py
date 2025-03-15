@@ -1,38 +1,28 @@
-from flask import Flask, current_app
+from flask import Flask
 from flask_restx import Api
-from models import ImageData, User
 from models import db
-from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from dashboard import workspace_ns
+from dashboard import dashboard_ns
 from auth import auth_ns
 from flask_cors import CORS
-
+from datetime import timedelta
 
 def create_app(config):
-    app = Flask(__name__, static_url_path="/", static_folder="./client/build")
+    app = Flask(__name__)
     app.config.from_object(config)
 
-
-
-    CORS(app, supports_credentials=True, origins=['http://localhost:5173/', 'http://localhost:5173', 'https://aizen-frontend-git-main-srinathdivate123s-projects.vercel.app/', 'https://aizen-frontend-git-main-srinathdivate123s-projects.vercel.app'])
-
+    CORS(app, supports_credentials=True, origins=[app.config['ALLOWED_ORIGIN_1'], app.config['ALLOWED_ORIGIN_2'], app.config['ALLOWED_ORIGIN_3']])
 
     db.init_app(app)
 
-    migrate = Migrate(app, db)
+    app.config["JWT_SECRET_KEY"] = app.config['MY_JWT_SECRET_KEY']
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
+
     JWTManager(app)
 
-    api = Api(app, doc="/docs")
+    api = Api(app)
 
-    api.add_namespace(workspace_ns)
+    api.add_namespace(dashboard_ns)
     api.add_namespace(auth_ns)
-
-
-
-    # model (serializer)
-    @app.shell_context_processor
-    def make_shell_context():
-        return {"db": db, "ImageData": ImageData, "User": User}
-
     return app

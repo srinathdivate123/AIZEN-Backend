@@ -1,8 +1,7 @@
 from main import create_app
-from config import DevConfig, ProdConfig
+from config import Config
 
-app = create_app(ProdConfig)
+app = create_app(Config)
 
-#run with 
 if __name__ == "__main__":
     app.run()

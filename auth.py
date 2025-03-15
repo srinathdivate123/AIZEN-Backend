@@ -2,56 +2,59 @@ from flask_restx import Resource, Namespace, fields
 from models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import (
-    JWTManager,
     create_access_token,
     create_refresh_token,
     get_jwt_identity,
     jwt_required,
 )
-from flask import Flask, request, jsonify, make_response
+from flask import request, jsonify, make_response
 
 
 auth_ns = Namespace("auth", description="A namespace for our Authentication")
 
 
-signup_model = auth_ns.model(
-    "SignUp",
+register_model = auth_ns.model(
+    "Register",
     {
-        "name": fields.String(),
-        "email": fields.String(),
-        "password": fields.String(),
+        "name": fields.String(required=True),
+        "email": fields.String(required=True),
+        "password": fields.String(required=True),
     },
 )
 
-
 login_model = auth_ns.model(
-    "Login", {"name": fields.String(), "password": fields.String()}
+    "Login", 
+    {
+        "email": fields.String(required=True),
+        "password": fields.String(required=True)
+    }
 )
 
 
 @auth_ns.route("/register")
-class SignUp(Resource):
-    @auth_ns.expect(signup_model)
+class Register(Resource):
+    @auth_ns.expect(register_model, validate=True)
     def post(self):
         data = request.get_json()
-        name = data.get("name")
-        db_user = User.query.filter_by(username=name).first()
+        email = data.get("email")
+        db_user = User.query.filter_by(email=email).first()
+        
         if db_user is not None:
-            return jsonify({"message": f"User with name {name} already exists"})
+            return jsonify({"message": f"User with email {email} already exists. Please choose another email."})
 
         new_user = User(
             username=data.get("name"),
-            email=data.get("email"),
+            email=email,
             password=generate_password_hash(data.get("password")),
         )
 
         new_user.save()
-        return make_response(jsonify({"message": "User created successfuly"}), 201)
+        return make_response(jsonify({"message": "User created successfuly!"}), 201)
 
 
 @auth_ns.route("/login")
 class Login(Resource):
-    @auth_ns.expect(login_model)
+    @auth_ns.expect(login_model, validate=True)
     def post(self):
         data = request.get_json()
 
@@ -70,7 +73,7 @@ class Login(Resource):
             )
 
         else:
-            return make_response(jsonify({"message": "Invalid name or password"}), 404)
+            return make_response(jsonify({"message": "Sorry! Your credentials don't match!"}), 404)
 
 
 @auth_ns.route("/refresh")
@@ -82,12 +85,12 @@ class RefreshResource(Resource):
         return make_response(jsonify({"access_token": new_access_token}), 200)
     
 
-@auth_ns.route('/user/current')
+@auth_ns.route('/current-user')
 class CurrentUser(Resource):
     @jwt_required()
     def get(self):
         current_user = get_jwt_identity()
         db_user = User.query.filter_by(email=current_user).first()
         if not db_user:
-            return jsonify({"error":" User not found!"})
+            return jsonify({"error":" User not found!"}), 404
         return jsonify({"user": db_user.to_dict()})

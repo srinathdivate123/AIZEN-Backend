@@ -4,11 +4,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask import request, current_app
 from models import db, ImageData
 from flask import request, jsonify
-from werkzeug.utils import secure_filename
 import datetime
 import boto3
 import uuid
-
 
  
 ALLOWED_EXTENSIONS = set([ 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
@@ -16,24 +14,26 @@ ALLOWED_EXTENSIONS = set([ 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-workspace_ns = Namespace("dashboard", description="A namespace for dashboard")
+dashboard_ns = Namespace("dashboard", description="A namespace for dashboard")
 
 
-
-
-@workspace_ns.route('/images')
+@dashboard_ns.route('/images')
 class HandleImages(Resource):
 
     @jwt_required()
     def get(self):
         current_user_email = get_jwt_identity()
         db_user = User.query.filter_by(email=current_user_email).first()
+
+        if not db_user:
+            return jsonify({"error":" User not found!"}), 404
+        
         all_images = ImageData.query.filter_by(user_id = db_user.id)
 
 
         paths = []
         for img in all_images:
-            p = 'https://' + 'aizenproject' + '.s3.us-east-1.amazonaws.com/' + img.filename
+            p = 'https://' + current_app.config['BUCKET_NAME'] + '.s3.us-east-1.amazonaws.com/' + img.filename
             paths.append(p)
 
         
@@ -42,66 +42,54 @@ class HandleImages(Resource):
     @jwt_required()
     def post(self):
         current_user_email = get_jwt_identity()
+
         db_user = User.query.filter_by(email=current_user_email).first()
+        if not db_user:
+            return jsonify({"error":" User not found!"}), 404
 
         user_id = db_user.id
 
+        file = request.files.get("files[]")
 
-        if 'files[]' not in request.files:
+        if not allowed_file(file.filename):
+            return jsonify({
+                "message": "Invalid file format",
+                "status": "failed"
+            }), 400
+    
+
+        new_filename = uuid.uuid4().hex + '.' + file.filename.rsplit('.', 1)[1].lower()
+
+        try:
+
+            s3 = boto3.resource("s3", aws_access_key_id = current_app.config['AWS_ACCESS_KEY'], aws_secret_access_key=current_app.config['AWS_SECRET_KEY'])
+
+            s3.Bucket(current_app.config['BUCKET_NAME']).upload_fileobj(file, new_filename)
+
+            newFile = ImageData(original_filename = file.filename, filename=new_filename, upload_date = datetime.datetime.now(datetime.timezone.utc), user_id = user_id)
+                    
+            db.session.add(newFile)
+            db.session.commit()
+
+        except Exception as e:
             resp = jsonify({
-                "message": 'No file part in the request',
+                "message": 'Oops! There was an error in uploading your file',
                 "status": 'failed'
             })
             resp.status_code = 400
             return resp
-    
-        files = request.files.getlist('files[]')
-        
-        errors = {}
-        success = False
-        for file in files:      
-            if file and allowed_file(file.filename):
-
-                new_filename = uuid.uuid4().hex + '.' + file.filename.rsplit('.', 1)[1].lower()
-
-                bucket_name = "aizenproject"
-                s3 = boto3.resource("s3", aws_access_key_id = current_app.config['AWS_ACCESS_KEY'], aws_secret_access_key=current_app.config['AWS_SECRET_KEY'])
-                s3.Bucket(bucket_name).upload_fileobj(file, new_filename)
 
 
-    
-                newFile = ImageData(original_filename = file.filename, filename=new_filename, upload_date = datetime.datetime.now(datetime.timezone.utc), user_id = user_id)
-                
-                db.session.add(newFile)
-                db.session.commit()
-    
-                success = True
-            else:
-                resp = jsonify({
-                    "message": 'File type is not allowed',
-                    "status": 'failed'
-                })
-                return resp
-        if success and errors:
-            errors['message'] = 'File(s) successfully uploaded'
-            errors['status'] = 'failed'
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
-        if success:
-            resp = jsonify({
+        resp = jsonify({
                 "message": 'Files successfully uploaded',
                 "status": 'success'
             })
-            resp.status_code = 201
-            return resp
-        else:
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
+        resp.status_code = 201
+        return resp
 
 
-@workspace_ns.route("/workspace")
+
+@dashboard_ns.route("/")
 class Workspace(Resource):
     @jwt_required()
     def get(self):
