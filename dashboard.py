@@ -89,6 +89,16 @@ class HandleImages(Resource):
 
 
 
+@dashboard_ns.route("/analyse-ai")
+class AnalyseAI(Resource):
+    @jwt_required()
+    def post(self):
+        data = request.get_json()
+        filename = data["filename"]
+        print(filename)
+
+
+
 @dashboard_ns.route("/")
 class Workspace(Resource):
     @jwt_required()
