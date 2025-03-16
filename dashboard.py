@@ -119,11 +119,3 @@ class AnalyseAI(Resource):
             })
         resp.status_code = 201
         return resp
-
-
-
-@dashboard_ns.route("/")
-class Workspace(Resource):
-    @jwt_required()
-    def get(self):
-        pass
