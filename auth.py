@@ -3,7 +3,6 @@ from models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import (
     create_access_token,
-    create_refresh_token,
     get_jwt_identity,
     jwt_required,
 )
@@ -66,24 +65,15 @@ class Login(Resource):
         if db_user and check_password_hash(db_user.password, password):
 
             access_token = create_access_token(identity=db_user.email)
-            refresh_token = create_refresh_token(identity=db_user.email)
 
             return jsonify(
-                {"access_token": access_token, "refresh_token": refresh_token, "user": db_user.to_dict()}
+                {"access_token": access_token, "user": db_user.to_dict()}
             )
 
         else:
             return make_response(jsonify({"message": "Sorry! Your credentials don't match!"}), 404)
 
 
-@auth_ns.route("/refresh")
-class RefreshResource(Resource):
-    @jwt_required(refresh=True)
-    def post(self):
-        current_user = get_jwt_identity()
-        new_access_token = create_access_token(identity=current_user)
-        return make_response(jsonify({"access_token": new_access_token}), 200)
-    
 
 @auth_ns.route('/current-user')
 class CurrentUser(Resource):
