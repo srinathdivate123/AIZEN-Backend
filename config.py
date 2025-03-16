@@ -18,3 +18,4 @@ class Config:
     ALLOWED_ORIGIN_2 = os.getenv('ALLOWED_ORIGIN_2')
     ALLOWED_ORIGIN_3 = os.getenv('ALLOWED_ORIGIN_3')
     MY_JWT_SECRET_KEY = os.getenv('MY_JWT_SECRET_KEY')
+    GEMINI_KEY = os.getenv('GEMINI_KEY')

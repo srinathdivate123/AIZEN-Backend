@@ -7,6 +7,11 @@ from flask import request, jsonify
 import datetime
 import boto3
 import uuid
+import httpx
+import os
+import base64
+import google.generativeai as genai
+
 
  
 ALLOWED_EXTENSIONS = set([ 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
@@ -89,13 +94,31 @@ class HandleImages(Resource):
 
 
 
+
+
+
 @dashboard_ns.route("/analyse-ai")
 class AnalyseAI(Resource):
     @jwt_required()
     def post(self):
         data = request.get_json()
         filename = data["filename"]
-        print(filename)
+
+        genai.configure(api_key=current_app.config['GEMINI_KEY'])
+        model = genai.GenerativeModel(model_name = "gemini-1.5-flash")
+
+        image_1 = httpx.get(filename)
+
+        prompt = "Tell me about this image."
+
+        model_response = model.generate_content([{'mime_type':'image/jpeg', 'data': base64.b64encode(image_1.content).decode('utf-8')}, prompt])
+
+
+        resp = jsonify({
+                "message": model_response.text
+            })
+        resp.status_code = 201
+        return resp
 
 
 
